@@ -200,7 +200,8 @@ var _ = Describe("Config", func() {
 		Expect(config.GetPersistentAppSpace()).To(Equal("CATS-persistent-space"))
 
 		Expect(config.GetIsolationSegmentName()).To(Equal(""))
-		Expect(config.GetRoutingIsolationSegment()).To(Equal(new(cfg.RoutingIsolationSegmentConfig)))
+		Expect(config.GetRoutingIsolationSegmentName()).To(Equal(""))
+		Expect(config.GetRoutingIsolationSegmentDomain()).To(Equal(""))
 
 		Expect(config.GetIncludeApps()).To(BeTrue())
 		Expect(config.GetIncludeDetect()).To(BeTrue())

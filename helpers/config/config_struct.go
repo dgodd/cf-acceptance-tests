@@ -37,9 +37,11 @@ type config struct {
 
 	IsolationSegmentName *string `json:"isolation_segment_name"`
 
-	RoutingIsolationSegment *RoutingIsolationSegmentConfig `json:"routing_isolation_segment"`
-	Backend                 *string                        `json:"backend"`
-	SkipSSLValidation       *bool                          `json:"skip_ssl_validation"`
+	RoutingIsolationSegmentName   *string `json:"routing_isolation_segment_name"`
+	RoutingIsolationSegmentDomain *string `json:"routing_isolation_segment_domain"`
+
+	Backend           *string `json:"backend"`
+	SkipSSLValidation *bool   `json:"skip_ssl_validation"`
 
 	ArtifactsDirectory *string `json:"artifacts_directory"`
 
@@ -90,11 +92,6 @@ type config struct {
 	NamePrefix *string `json:"name_prefix"`
 }
 
-type RoutingIsolationSegmentConfig struct {
-	Name   string
-	Domain string
-}
-
 var defaults = config{}
 
 func ptrToString(str string) *string {
@@ -122,7 +119,8 @@ func getDefaults() config {
 	defaults.PersistentAppSpace = ptrToString("CATS-persistent-space")
 
 	defaults.IsolationSegmentName = ptrToString("")
-	defaults.RoutingIsolationSegment = &RoutingIsolationSegmentConfig{}
+	defaults.RoutingIsolationSegmentName = ptrToString("")
+	defaults.RoutingIsolationSegmentDomain = ptrToString("")
 
 	defaults.BinaryBuildpackName = ptrToString("binary_buildpack")
 	defaults.GoBuildpackName = ptrToString("go_buildpack")
@@ -601,8 +599,12 @@ func (c *config) GetIsolationSegmentName() string {
 	return *c.IsolationSegmentName
 }
 
-func (c *config) GetRoutingIsolationSegment() RoutingIsolationSegmentConfig {
-	return *c.RoutingIsolationSegment
+func (c *config) GetRoutingIsolationSegmentName() string {
+	return *c.RoutingIsolationSegmentName
+}
+
+func (c *config) GetRoutingIsolationSegmentDomain() string {
+	return *c.RoutingIsolationSegmentDomain
 }
 
 func (c *config) GetNamePrefix() string {

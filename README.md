@@ -134,6 +134,7 @@ export CONFIG=$PWD/integration_config.json
 * `include_v3`: Flag to include tests for the the v3 API.
 * `include_zipkin`: Flag to include tests for Zipkin tracing. `include_routing` must also be set for tests to run. CF must be deployed with `router.tracing.enable_zipkin` set for tests to pass.
 * `include_isolation_segments`: Flag to include isolation segment tests.
+* `include_routing_isolation_segments`: Flag to include routing-level isolation segment tests.
 * `backend`: App tests push their apps using the backend specified. Incompatible tests will be skipped based on which backend is chosen. If left unspecified the default backend will be used where none is specified; all tests that specify a particular backend will be skipped.
 * `use_http`: Set to true if you would like CF Acceptance Tests to use HTTP when making api and application requests. (default is HTTPS)
 * `use_existing_organization`: Set to true when you need to specify an existing organization to use rather than creating a new organization.
@@ -155,6 +156,8 @@ export CONFIG=$PWD/integration_config.json
 * `test_password`: Used to set the password for the test user. This may be needed if your CF installation has password policies.
 * `timeout_scale`: Used primarily to scale default timeouts for test setup and teardown actions (e.g. creating an org) as opposed to main test actions (e.g. pushing an app).
 * `isolation_segment_name`: Name of the isolation segment to use for the isolation segments test.
+* `routing_isolation_segment_name`: Name of the isolation segment to use for the routing isolation segments test.
+* `routing_isolation_segment_domain`: Domain to use for testing routing with isolation segments.
 * `private_docker_registry_image`: Name of the private docker image to use when testing private docker registries. [See below](#private-docker)
 * `private_docker_registry_username`: Username to access the private docker repository. [See below](#private-docker)
 * `private_docker_registry_password`: Password to access the private docker repository. [See below](#private-docker)
