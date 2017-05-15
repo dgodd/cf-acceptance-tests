@@ -37,8 +37,9 @@ type config struct {
 
 	IsolationSegmentName *string `json:"isolation_segment_name"`
 
-	Backend           *string `json:"backend"`
-	SkipSSLValidation *bool   `json:"skip_ssl_validation"`
+	RoutingIsolationSegment *RoutingIsolationSegmentConfig `json:"routing_isolation_segment"`
+	Backend                 *string                        `json:"backend"`
+	SkipSSLValidation       *bool                          `json:"skip_ssl_validation"`
 
 	ArtifactsDirectory *string `json:"artifacts_directory"`
 
@@ -80,12 +81,18 @@ type config struct {
 	IncludeV3                         *bool `json:"include_v3"`
 	IncludeZipkin                     *bool `json:"include_zipkin"`
 	IncludeIsolationSegments          *bool `json:"include_isolation_segments"`
+	IncludeRoutingIsolationSegments   *bool `json:"include_routing_isolation_segments"`
 
 	PrivateDockerRegistryImage    *string `json:"private_docker_registry_image"`
 	PrivateDockerRegistryUsername *string `json:"private_docker_registry_username"`
 	PrivateDockerRegistryPassword *string `json:"private_docker_registry_password"`
 
 	NamePrefix *string `json:"name_prefix"`
+}
+
+type RoutingIsolationSegmentConfig struct {
+	Name   string
+	Domain string
 }
 
 var defaults = config{}
@@ -115,6 +122,7 @@ func getDefaults() config {
 	defaults.PersistentAppSpace = ptrToString("CATS-persistent-space")
 
 	defaults.IsolationSegmentName = ptrToString("")
+	defaults.RoutingIsolationSegment = &RoutingIsolationSegmentConfig{}
 
 	defaults.BinaryBuildpackName = ptrToString("binary_buildpack")
 	defaults.GoBuildpackName = ptrToString("go_buildpack")
@@ -135,6 +143,7 @@ func getDefaults() config {
 	defaults.IncludeDocker = ptrToBool(false)
 	defaults.IncludeInternetDependent = ptrToBool(false)
 	defaults.IncludeIsolationSegments = ptrToBool(false)
+	defaults.IncludeRoutingIsolationSegments = ptrToBool(false)
 	defaults.IncludePrivilegedContainerSupport = ptrToBool(false)
 	defaults.IncludePrivateDockerRegistry = ptrToBool(false)
 	defaults.IncludeRouteServices = ptrToBool(false)
@@ -592,6 +601,10 @@ func (c *config) GetIsolationSegmentName() string {
 	return *c.IsolationSegmentName
 }
 
+func (c *config) GetRoutingIsolationSegment() RoutingIsolationSegmentConfig {
+	return *c.RoutingIsolationSegment
+}
+
 func (c *config) GetNamePrefix() string {
 	return *c.NamePrefix
 }
@@ -678,6 +691,10 @@ func (c *config) GetIncludeRouting() bool {
 
 func (c *config) GetIncludeZipkin() bool {
 	return *c.IncludeZipkin
+}
+
+func (c *config) GetIncludeRoutingIsolationSegments() bool {
+	return *c.IncludeRoutingIsolationSegments
 }
 
 func (c *config) GetIncludeTasks() bool {

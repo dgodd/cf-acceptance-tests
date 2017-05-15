@@ -1,0 +1,128 @@
+package routing
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
+	"code.cloudfoundry.org/cf-routing-test-helpers/helpers"
+	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
+	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
+	. "github.com/cloudfoundry/cf-acceptance-tests/cats_suite_helpers"
+	"github.com/cloudfoundry/cf-acceptance-tests/helpers/assets"
+	"github.com/cloudfoundry/cf-acceptance-tests/helpers/config"
+	"github.com/cloudfoundry/cf-acceptance-tests/helpers/random_name"
+	"github.com/cloudfoundry/cf-acceptance-tests/helpers/v3_helpers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+)
+
+var _ = RoutingIsolationSegmentsDescribe("Routing Isolation Segments", func() {
+	var (
+		app1              string
+		helloRoutingAsset = assets.NewAssets().HelloRouting
+		orgName           string
+		spaceName         string
+		isoOrgName        string
+		isoOrgGuid        string
+		isoSpaceName      string
+		isoSegGuid        string
+		isoSeg            config.RoutingIsolationSegmentConfig
+		testSetup         *workflowhelpers.ReproducibleTestSuiteSetup
+		isoSegsToDelete   []string
+	)
+
+	BeforeEach(func() {
+		cfg, _ := config.NewCatsConfig(os.Getenv("CONFIG"))
+		isoSeg = Config.GetRoutingIsolationSegment()
+		Expect(isoSeg.Name).NotTo(Equal(""), "RoutingIsolationSegment must include a name")
+		Expect(isoSeg.Domain).NotTo(Equal(""), "RoutingIsolationSegment must include a domain")
+
+		testSetup = workflowhelpers.NewTestSuiteSetup(cfg)
+		testSetup.Setup()
+
+		orgName = testSetup.RegularUserContext().Org
+		spaceName = testSetup.RegularUserContext().Space
+
+		isoOrgName = random_name.CATSRandomName("IsoOrg")
+		workflowhelpers.AsUser(testSetup.AdminUserContext(), testSetup.ShortTimeout(), func() {
+			Eventually(cf.Cf("create-org", isoOrgName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+			session := cf.Cf("org", isoOrgName, "--guid")
+			bytes := session.Wait(Config.DefaultTimeoutDuration()).Out.Contents()
+			isoOrgGuid = strings.TrimSpace(string(bytes))
+		})
+	})
+
+	AfterEach(func() {
+		testSetup.Teardown()
+		helpers.AppReport(app1, Config.DefaultTimeoutDuration())
+		helpers.DeleteApp(app1, Config.DefaultTimeoutDuration())
+		workflowhelpers.AsUser(testSetup.AdminUserContext(), testSetup.ShortTimeout(), func() {
+			Eventually(cf.Cf("delete-space", "-f", "-o", isoOrgName, isoSpaceName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+			v3_helpers.RevokeOrgEntitlementForIsolationSegment(isoOrgGuid, isoSegGuid)
+			Eventually(cf.Cf("delete-org", "-f", isoOrgName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+			for _, isoSegGuid := range isoSegsToDelete {
+				v3_helpers.DeleteIsolationSegment(isoSegGuid)
+			}
+		})
+	})
+
+	FContext("when router is configured with isolation segments", func() {
+		BeforeEach(func() {
+			isoSpaceName = random_name.CATSRandomName("IsoSpace")
+			workflowhelpers.AsUser(testSetup.AdminUserContext(), testSetup.ShortTimeout(), func() {
+				isoSeg := Config.GetRoutingIsolationSegment()
+				newIsoSeg := false
+				if !v3_helpers.IsolationSegmentExists(isoSeg.Name) {
+					newIsoSeg = true
+					v3_helpers.CreateIsolationSegment(isoSeg.Name)
+				}
+				isoSegGuid = v3_helpers.GetIsolationSegmentGuid(isoSeg.Name)
+				if newIsoSeg {
+					isoSegsToDelete = append(isoSegsToDelete, isoSegGuid)
+				}
+
+				Expect(v3_helpers.IsolationSegmentExists(isoSeg.Name)).To(BeTrue())
+				v3_helpers.EntitleOrgToIsolationSegment(isoOrgGuid, isoSegGuid)
+				Eventually(cf.Cf("target", "-o", isoOrgName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+				Eventually(cf.Cf("create-space", "-o", isoOrgName, isoSpaceName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+				session := cf.Cf("space", isoSpaceName, "--guid")
+				bytes := session.Wait(Config.DefaultTimeoutDuration()).Out.Contents()
+				isoSpaceGuid := strings.TrimSpace(string(bytes))
+
+				v3_helpers.AssignIsolationSegmentToSpace(isoSpaceGuid, isoSegGuid)
+				//Add test user to space
+				Eventually(cf.Cf("set-space-role", testSetup.RegularUserContext().TestUser.Username(), isoOrgName, isoSpaceName, "SpaceDeveloper"), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+			})
+
+			app1 = random_name.CATSRandomName("APP")
+			Eventually(cf.Cf("target", "-o", isoOrgName, "-s", isoSpaceName), Config.DefaultTimeoutDuration()).Should(gexec.Exit(0))
+
+			helpers.PushApp(app1, helloRoutingAsset, Config.GetRubyBuildpackName(), Config.GetAppsDomain(), Config.CfPushTimeoutDuration(), DEFAULT_MEMORY_LIMIT)
+
+		})
+		It("the app in IS responds with 200", func() {
+			req, _ := http.NewRequest("GET", fmt.Sprintf("http://iso-router.%s", isoSeg.Domain), nil)
+			req.Host = fmt.Sprintf("%s.%s", app1, Config.GetAppsDomain())
+
+			resp, err := http.DefaultClient.Do(req)
+			defer resp.Body.Close()
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+		})
+
+		It("the app is not reachable outside the isolation segment", func() {
+			req, _ := http.NewRequest("GET", fmt.Sprintf("http://shared-router.%s", Config.GetAppsDomain()), nil)
+			req.Host = fmt.Sprintf("%s.%s", app1, Config.GetAppsDomain())
+
+			resp, err := http.DefaultClient.Do(req)
+			defer resp.Body.Close()
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(404))
+		})
+	})
+})
