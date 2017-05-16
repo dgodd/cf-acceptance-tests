@@ -1,5 +1,4 @@
 class LoggingService
-
   def initialize
     @run = false
     @sequence_number = 0
