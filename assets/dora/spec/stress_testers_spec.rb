@@ -63,11 +63,6 @@ describe StressTesters do
         expect(last_response.body).to include "--vm 33"
         expect(last_response.body).to include "--cpu 22"
       end
-
-      it "copes when an invalid option is requested" do
-        post "/stress_testers?bad_option=22"
-        expect(last_response.status).to eq 412
-      end
     end
 
     context "when the pgrep command fails" do

@@ -46,5 +46,5 @@ describe LogUtils do
       get "/log/sleep/count"
       expect(last_response.body.to_i).to eq 5
     end
-  end  
+  end
 end

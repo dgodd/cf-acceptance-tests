@@ -3,12 +3,12 @@ require 'roda'
 class Loglines < Roda
   STDOUT.sync = true
   route do |r|
-    r.is :linecout do |linecount|
-      produce_log_output(params[:linecount])
-      "logged #{params[:linecount]} line to stdout"
+    r.is :linecount do |linecount|
+      produce_log_output(linecount)
+      "logged #{linecount} line to stdout"
     end
 
-    r.is :linecout, :tag do |linecount, tag|
+    r.is :linecount, :tag do |linecount, tag|
       produce_log_output(linecount, tag)
       "logged #{linecount} line with tag #{tag} to stdout"
     end
